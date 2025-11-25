@@ -27,11 +27,17 @@ python -m venv .venv
 ```bash
 pip install -r requirements.txt
 ```
-4. Скачайте модели Vosk (см. [MODELS.md](MODELS.md)):
-   - **Русская**: [vosk-model-small-ru-0.22](https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip) (~45 MB)
-   - **Английская**: [vosk-model-small-en-us-0.15](https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip) (~40 MB)
+4. Скачайте модели Vosk:
+   
+   **Маленькие модели** (рекомендуется для начала):
+   - Русская: [vosk-model-small-ru-0.22](https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip) (~45 MB)
+   - Английская: [vosk-model-small-en-us-0.15](https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip) (~40 MB)
    - Распакуйте в `model/model-ru` и `model/model-en`
-   - Или запустите `download_model.cmd`
+   
+   **Большие модели** (лучшее качество):
+   - Русская: [vosk-model-ru-0.42](https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip) (~2.5 GB)
+   - Английская: [vosk-model-en-us-0.22](https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip) (~1.8 GB)
+   - Или запустите `download_large_models.cmd`
 
 5. (Опционально) Добавьте DeepSeek API ключ в `.env` для улучшенного комбинирования:
 ```
@@ -112,10 +118,20 @@ DEEPSEEK_API_KEY=ваш_ключ
 GOOGLE_API_KEY=ваш_ключ
 ```
 
-### Большие модели
+### Структура папок
 
-Для лучшего качества используйте большие модели:
-- Русская: [vosk-model-ru-0.42](https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip) (~2.5 GB)
-- Английская: [vosk-model-en-us-0.22](https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip) (~1.8 GB)
-
-Или запустите `download_large_models.cmd`
+```
+microphone/
+├── model/
+│   ├── model-ru/      # Русская модель
+│   │   ├── am/
+│   │   ├── conf/
+│   │   ├── graph/
+│   │   └── ...
+│   └── model-en/      # Английская модель
+│       ├── am/
+│       ├── conf/
+│       └── ...
+├── main.py
+└── config.yaml
+```
