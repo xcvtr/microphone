@@ -5,8 +5,8 @@ engine: "vosk"
 
 # Настройки Vosk (офлайн)
 vosk:
-  model_path: "model/model-ru"  # Путь к русской модели
-  model_path_en: "model/model-en"  # Путь к английской модели
+  model_path: "model/model-ru-large"  # Путь к русской модели
+  model_path_en: "model/model-en-large"  # Путь к английской модели
   sample_rate: 16000
   # Русская: vosk-model-ru-0.42 (~2.5 GB)
   # Английская: vosk-model-small-en-us-0.15 (~40 MB)
