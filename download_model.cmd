@@ -1,0 +1,1 @@
+Invoke-WebRequest -Uri "https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip" -OutFile "vosk-model-ru.zip"

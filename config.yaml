@@ -1,0 +1,19 @@
+# Конфигурация распознавания речи
+
+# Движок распознавания: "vosk" или "google"
+engine: "vosk"
+
+# Настройки Vosk (офлайн)
+vosk:
+  model_path: "model"  # Путь к модели Vosk
+  sample_rate: 16000
+  # Для смешанного рус-англ используйте модель:
+  # vosk-model-ru-0.42 (поддерживает русский + английские слова)
+
+# Настройки Google Speech-to-Text (онлайн, требует API ключ в .env)
+google:
+  language_code: "ru-RU"
+  alternative_languages:
+    - "en-US"
+  model: "latest_long"
+  enable_punctuation: true
