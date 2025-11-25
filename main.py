@@ -54,26 +54,32 @@ class AudioTranscriber:
             }
     
     def init_vosk(self):
-        """Инициализировать модель Vosk"""
+        """Инициализировать модели Vosk (русская и английская)"""
+        self.vosk_model_ru = None
+        self.vosk_model_en = None
+        
         try:
-            model_path = self.config['vosk']['model_path']
-            if not os.path.exists(model_path):
-                print(f"❌ Модель Vosk не найдена в '{model_path}'")
-                print("📥 Скачайте модель с https://alphacephei.com/vosk/models")
-                print("   Рекомендуется: vosk-model-small-ru-0.22 для русского")
-                self.vosk_model = None
-                return
+            # Загрузить русскую модель
+            model_path_ru = self.config['vosk']['model_path']
+            if os.path.exists(model_path_ru):
+                print(f"📦 Загрузка русской модели из '{model_path_ru}'...")
+                self.vosk_model_ru = Model(model_path_ru)
+                print("✅ Русская модель загружена")
+            else:
+                print(f"❌ Русская модель не найдена в '{model_path_ru}'")
             
-            print(f"📦 Загрузка модели Vosk из '{model_path}'...")
-            self.vosk_model = Model(model_path)
-            self.vosk_recognizer = KaldiRecognizer(
-                self.vosk_model,
-                self.config['vosk']['sample_rate']
-            )
-            print("✅ Модель Vosk загружена")
+            # Загрузить английскую модель
+            model_path_en = self.config['vosk'].get('model_path_en', 'model/model-en')
+            if os.path.exists(model_path_en):
+                print(f"📦 Загрузка английской модели из '{model_path_en}'...")
+                self.vosk_model_en = Model(model_path_en)
+                print("✅ Английская модель загружена")
+            else:
+                print(f"⚠️ Английская модель не найдена в '{model_path_en}'")
+                print("   Запустите download_model.cmd для скачивания")
+                
         except Exception as e:
             print(f"❌ Ошибка инициализации Vosk: {e}")
-            self.vosk_model = None
     
     def start_listening(self):
         """Начать запись и транскрибацию"""
@@ -81,9 +87,14 @@ class AudioTranscriber:
             return
         
         # Проверить доступность движка
-        if self.config['engine'] == 'vosk' and not hasattr(self, 'vosk_model'):
-            print("❌ Модель Vosk не инициализирована")
-            return
+        if self.config['engine'] == 'vosk':
+            if not self.vosk_model_ru and not self.vosk_model_en:
+                print("❌ Ни одна модель Vosk не загружена")
+                return
+            if not self.vosk_model_ru:
+                print("⚠️ Русская модель не загружена, используется только английская")
+            if not self.vosk_model_en:
+                print("⚠️ Английская модель не загружена, используется только русская")
         
         # Сохранить текущее окно с фокусом
         try:
@@ -152,38 +163,172 @@ class AudioTranscriber:
             print(f"❌ Неизвестный движок: {self.config['engine']}")
     
     def transcribe_vosk(self):
-        """Транскрибация через Vosk (офлайн)"""
-        if not self.vosk_model:
-            print("❌ Модель Vosk не загружена")
+        """Транскрибация через Vosk с двумя моделями"""
+        if not self.vosk_model_ru and not self.vosk_model_en:
+            print("❌ Модели Vosk не загружены")
             return
         
         try:
-            print("🔄 Распознавание через Vosk...")
-            
-            # Создать новый распознаватель для этой записи
-            recognizer = KaldiRecognizer(
-                self.vosk_model,
-                self.config['vosk']['sample_rate']
-            )
-            
-            # Обработать аудио
             audio_data = b''.join(self.frames)
+            sample_rate = self.config['vosk']['sample_rate']
             
-            if recognizer.AcceptWaveform(audio_data):
-                result = json.loads(recognizer.Result())
-            else:
-                result = json.loads(recognizer.FinalResult())
+            # Распознать русской моделью
+            text_ru = ""
+            words_ru = []
+            if self.vosk_model_ru:
+                print("🔄 Распознавание русской моделью...")
+                rec_ru = KaldiRecognizer(self.vosk_model_ru, sample_rate)
+                rec_ru.SetWords(True)
+                
+                if rec_ru.AcceptWaveform(audio_data):
+                    result_ru = json.loads(rec_ru.Result())
+                else:
+                    result_ru = json.loads(rec_ru.FinalResult())
+                
+                text_ru = result_ru.get('text', '').strip()
+                words_ru = result_ru.get('result', [])
+                print(f"🇷🇺 Русская: {text_ru}")
             
-            text = result.get('text', '').strip()
+            # Распознать английской моделью
+            text_en = ""
+            words_en = []
+            if self.vosk_model_en:
+                print("🔄 Распознавание английской моделью...")
+                rec_en = KaldiRecognizer(self.vosk_model_en, sample_rate)
+                rec_en.SetWords(True)
+                
+                if rec_en.AcceptWaveform(audio_data):
+                    result_en = json.loads(rec_en.Result())
+                else:
+                    result_en = json.loads(rec_en.FinalResult())
+                
+                text_en = result_en.get('text', '').strip()
+                words_en = result_en.get('result', [])
+                print(f"🇺🇸 Английская: {text_en}")
             
-            if text:
-                print(f"📝 Распознано: {text}")
-                self.insert_text(text)
+            # Комбинировать результаты
+            if words_ru and words_en:
+                final_text = self.combine_results(words_ru, words_en, text_ru, text_en)
+            elif text_ru:
+                final_text = text_ru
+            elif text_en:
+                final_text = text_en
             else:
                 print("⚠️ Не удалось распознать речь")
+                return
+            
+            print(f"📝 Итого: {final_text}")
+            self.insert_text(final_text)
         
         except Exception as e:
             print(f"❌ Ошибка Vosk: {e}")
+    
+    def combine_results(self, words_ru, words_en, text_ru, text_en):
+        """Комбинировать результаты двух моделей через DeepSeek AI"""
+        print(f"  🇷🇺 Русская: {text_ru}")
+        print(f"  🇺🇸 Английская: {text_en}")
+        
+        # Попробовать использовать DeepSeek для умного комбинирования
+        deepseek_key = os.getenv('DEEPSEEK_API_KEY')
+        if deepseek_key:
+            try:
+                print(f"  🤖 Отправка в DeepSeek AI...")
+                result = self.combine_with_ai(words_ru, words_en, deepseek_key)
+                if result:
+                    return result
+            except Exception as e:
+                print(f"  ⚠️ Ошибка DeepSeek: {e}")
+        
+        # Fallback: простое комбинирование по уверенности
+        print(f"  🔄 Fallback: комбинирование по уверенности")
+        result = []
+        max_len = max(len(words_ru), len(words_en))
+        
+        for i in range(max_len):
+            if i < len(words_ru) and i < len(words_en):
+                word_ru = words_ru[i]
+                word_en = words_en[i]
+                
+                word_text_ru = word_ru.get('word', '')
+                word_text_en = word_en.get('word', '')
+                conf_ru = word_ru.get('conf', 0)
+                conf_en = word_en.get('conf', 0)
+                
+                if conf_en > conf_ru:
+                    result.append(word_text_en)
+                else:
+                    result.append(word_text_ru)
+            elif i < len(words_ru):
+                result.append(words_ru[i].get('word', ''))
+            elif i < len(words_en):
+                result.append(words_en[i].get('word', ''))
+        
+        return ' '.join(result)
+    
+    def combine_with_ai(self, words_ru, words_en, api_key):
+        """Использовать DeepSeek AI для умного комбинирования"""
+        # Собрать полные фразы
+        text_ru = ' '.join(w.get('word', '') for w in words_ru)
+        text_en = ' '.join(w.get('word', '') for w in words_en)
+        
+        # Подготовить детальную информацию по словам
+        ru_words_detail = ', '.join(f"'{w.get('word', '')}' ({w.get('conf', 0):.2f})" for w in words_ru)
+        en_words_detail = ', '.join(f"'{w.get('word', '')}' ({w.get('conf', 0):.2f})" for w in words_en)
+        
+        prompt = f"""Распознавание одной речи двумя моделями:
+
+РУССКАЯ МОДЕЛЬ: {text_ru}
+Уверенность по словам: {ru_words_detail}
+
+АНГЛИЙСКАЯ МОДЕЛЬ: {text_en}
+Уверенность по словам: {en_words_detail}
+
+Задача: создать ОДНУ правильную транскрипцию того, что было сказано.
+
+ВАЖНО: Пользователь говорит ПРЕИМУЩЕСТВЕННО НА РУССКОМ языке. По умолчанию предпочитай русский вариант.
+
+Правила:
+1. Если русская модель дала осмысленную фразу с высокой уверенностью (conf > 0.8) - используй её
+2. Английский вариант используй только если:
+   - Русский вариант явно бессмысленный
+   - ИЛИ есть явные английские слова (hello, world, test и т.д.)
+3. Если английское слово написано латиницей в EN, но транслитерировано в RU (например "хеллоу" vs "hello") - используй латиницу
+4. Для смешанной речи (рус+англ) комбинируй: русские слова из RU, английские из EN
+
+Верни ТОЛЬКО итоговый текст без объяснений."""
+
+        try:
+            response = requests.post(
+                'https://api.deepseek.com/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'model': 'deepseek-chat',
+                    'messages': [
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 150
+                },
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                text = result['choices'][0]['message']['content'].strip()
+                # Убрать возможные кавычки
+                text = text.strip('"\'')
+                print(f"  🤖 DeepSeek: {text}")
+                return text
+            else:
+                print(f"  ⚠️ DeepSeek API error: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"  ⚠️ DeepSeek request failed: {e}")
+            return None
     
     def transcribe_google(self):
         """Транскрибация через Google Speech-to-Text (онлайн)"""
@@ -336,14 +481,19 @@ def main():
     transcriber = AudioTranscriber()
     
     def on_activate_record():
+        print("🔥 Горячая клавиша нажата!")
         transcriber.toggle_recording()
     
     # Регистрация горячих клавиш
     def hotkey_listener():
-        with keyboard.GlobalHotKeys({
-            '<alt>+`': on_activate_record
-        }) as h:
-            h.join()
+        try:
+            with keyboard.GlobalHotKeys({
+                '<alt>+`': on_activate_record
+            }) as h:
+                print("✅ Горячая клавиша Alt+` зарегистрирована")
+                h.join()
+        except Exception as e:
+            print(f"❌ Ошибка регистрации горячей клавиши: {e}")
     
     threading.Thread(target=hotkey_listener, daemon=True).start()
     

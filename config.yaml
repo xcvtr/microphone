@@ -5,10 +5,12 @@ engine: "vosk"
 
 # Настройки Vosk (офлайн)
 vosk:
-  model_path: "model"  # Путь к модели Vosk
+  model_path: "model/model-ru"  # Путь к русской модели
+  model_path_en: "model/model-en"  # Путь к английской модели
   sample_rate: 16000
-  # Для смешанного рус-англ используйте модель:
-  # vosk-model-ru-0.42 (поддерживает русский + английские слова)
+  # Русская: vosk-model-ru-0.42 (~2.5 GB)
+  # Английская: vosk-model-small-en-us-0.15 (~40 MB)
+  # Запустите download_model.cmd для скачивания английской модели
 
 # Настройки Google Speech-to-Text (онлайн, требует API ключ в .env)
 google:
